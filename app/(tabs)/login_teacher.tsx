@@ -5,51 +5,52 @@ import { useState } from 'react';
 import { Alert, Button, StyleSheet, TextInput } from 'react-native';
 
 
-export default function login(){
+export default function Login(){
   
  const router = useRouter();
- const [student_name, setUsername] = useState('');
- const [student_password, setPassword] = useState('');
+
+ const [teacher_name, setUsername] = useState('');
+ const [teacher_password, setPassword] = useState('');
  const [error, setError] = useState('');
 
  async function loginIntoApp(
-   student_name:string,
-   student_password:string
+   teacher_name:string,
+   teacher_password:string
   ){
-  if(!student_name || !student_password ){
+  if(!teacher_name || !teacher_password ){
     Alert.alert('Error, campos incompletos');
     return;
   }
   setError('');
   try{
-      const response = await fetch("http://localhost:3000/verify_student", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          student_name: student_name,
-          student_password: student_password
-        }),
-      });
+      const response = await fetch("http://localhost:3000/verify_teacher", {
+      method: 'POST',
+      headers: {
+        'Content-Type':'application/json',
+      },
+      body: JSON.stringify({
+        teacher_name: teacher_name,
+        teacher_password: teacher_password
+      }),
+    });
 
   console.log("Respuesta del servidor: ", response.status);
 
   const data = await response.json();
   if(data.success){
-    router.navigate('/(tabs)/homepagestudent');
+    router.navigate('/(tabs)/homepageteacher');
   }
   else
   {
-    console.log("el estudiante no existe");
+    console.log("el profesor no existe");
   }
-
- } catch(error:any){
-  console.error("Error al buscar el estudiante");
-  setError(error.message);
-  Alert.alert(`Error, no se pudo verificar al estudiante: ${error.message}`);
+  } catch (error:any){
+    console.error("Error al buscar profesor");
+    setError(error.message);
+    Alert.alert(`error, no se pudo verificar al profesor: ${error.message}`);
+  }
  }
-  }
+
   return (
 
     <ThemedView style={styles.container}>
@@ -57,7 +58,7 @@ export default function login(){
       
       <TextInput 
         placeholder='Insert your username' 
-        value={student_name}
+        value={teacher_name}
         onChangeText={setUsername} 
         style={styles.textInputStyle}
         placeholderTextColor="#999"
@@ -65,7 +66,7 @@ export default function login(){
 
       <TextInput 
         placeholder='Insert your password'  
-        value={student_password}
+        value={teacher_password}
         onChangeText={setPassword} 
         style={styles.textInputStyle}
         placeholderTextColor="#999"
@@ -81,10 +82,10 @@ export default function login(){
       </ThemedText>
 
       <ThemedText 
-        onPress={() => router.navigate('/(tabs)/login_teacher')} 
+        onPress={() => router.navigate('/(tabs)')} 
         style={styles.linkText}
       >
-        Are you a teacher?
+        Are you a student?
       </ThemedText>
 
       
@@ -94,8 +95,8 @@ export default function login(){
           onPress={() => {
             console.log("El botón fue presionado");
             loginIntoApp(
-              student_name,
-              student_password,
+              teacher_name,
+              teacher_password,
             );
           }}
         />
