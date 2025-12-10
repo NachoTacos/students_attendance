@@ -1,110 +1,221 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+// Importamos las nuevas funciones offline que creamos en api.js
+import { markAttendance, saveOfflineAttendance, syncPendingAttendance } from '../../services/api';
 
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+// Definimos la estructura de la materia que viene de la BD
+interface Subject {
+  id: number;
+  name: string;
+  start_time: string; // "14:00:00"
+  end_time: string;   // "16:00:00"
+}
 
-export default function TabTwoScreen() {
+export default function HomePageStudent() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [studentName, setStudentName] = useState('');
+  
+  // Estados de datos
+  const [materias, setMaterias] = useState<Subject[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+
+  // Asegúrate de que esta IP sea la misma que en api.js
+  const API_URL = 'http://192.168.100.19:3000'; 
+
+  useEffect(() => {
+    // 1. Cargar nombre del estudiante
+    AsyncStorage.getItem('studentName').then(val => { if(val) setStudentName(val); });
+    
+    // 2. Cargar lista de materias
+    fetchMaterias();
+
+    // 3. INTENTAR SINCRONIZAR DATOS PENDIENTES (OFFLINE -> ONLINE)
+    const trySync = async () => {
+      const result = await syncPendingAttendance();
+      if (result.success && (result.count || 0) > 0) {
+        Alert.alert("Sincronización", `☁️ Se subieron automáticamente ${result.count} asistencias que guardaste sin internet.`);
+      }
+    };
+    trySync();
+
+  }, []);
+
+  const fetchMaterias = async () => {
+    try {
+      const response = await fetch(`${API_URL}/subjects`);
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setMaterias(data);
+      }
+    } catch (error) {
+      console.error("Error cargando materias:", error);
+      // No bloqueamos al usuario con alerta aquí para no ser molestos si solo falla la carga inicial
+    }
+  };
+
+  // --- LÓGICA DE VALIDACIÓN DE TIEMPO ---
+  const validarHorario = (materia: Subject) => {
+    const ahora = new Date();
+
+    // Parsear Inicio
+    const [hInicio, mInicio] = materia.start_time.split(':');
+    const fechaInicio = new Date();
+    fechaInicio.setHours(parseInt(hInicio), parseInt(mInicio), 0);
+
+    // Parsear Fin
+    const [hFin, mFin] = materia.end_time.split(':');
+    const fechaFin = new Date();
+    fechaFin.setHours(parseInt(hFin), parseInt(mFin), 0);
+
+    // Tolerancias: 15 min antes, 10 min después
+    const inicioPermitido = new Date(fechaInicio.getTime() - 15 * 60000);
+    const finPermitido = new Date(fechaFin.getTime() + 10 * 60000);
+
+    if (ahora < inicioPermitido) {
+      Alert.alert("Muy temprano", `La asistencia para ${materia.name} inicia a las ${hInicio}:${mInicio}`);
+      return false;
+    }
+    if (ahora > finPermitido) {
+      Alert.alert("Tarde", `La clase de ${materia.name} ya terminó a las ${hFin}:${mFin}`);
+      return false;
+    }
+    return true;
+  };
+
+const handleAttendance = async () => {
+    if (!selectedSubject) {
+        Alert.alert("Atención", "Por favor selecciona una materia primero.");
+        return;
+    }
+
+    const esHorarioValido = validarHorario(selectedSubject);
+    if (!esHorarioValido) return;
+
+    setLoading(true);
+    try {
+      const studentId = await AsyncStorage.getItem('studentId');
+      if (!studentId) return;
+
+      // Intentamos conexión normal (ONLINE)
+      const result = await markAttendance(studentId, selectedSubject.name);
+      
+      if (result.success) {
+        Alert.alert("¡Éxito!", result.message);
+      } else {
+        Alert.alert("Aviso", result.message);
+      }
+
+    } catch (error) {
+      // --- SI FALLA EL INTERNET (CATCH) ---
+      console.log("Fallo de red, guardando offline...");
+      
+      const studentId = await AsyncStorage.getItem('studentId');
+      if (studentId) {
+        await saveOfflineAttendance(studentId, selectedSubject.name);
+        Alert.alert(
+          "Modo Sin Conexión", 
+          "No tienes internet, pero tu asistencia se guardó en el celular. \n\nSe enviará automáticamente cuando recuperes la conexión y abras la app."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+      await AsyncStorage.clear();
+      router.replace('/signin');
+  };
+
+  const formatTime = (timeString: string) => {
+    if (!timeString) return "";
+    return timeString.substring(0, 5);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore 2s</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <Text style={styles.title}>Hola, {studentName}</Text>
+      
+      <View style={styles.card}>
+        <Text style={styles.date}>{new Date().toLocaleDateString()}</Text>
+        <Text style={styles.subtitle}>Selecciona tu clase:</Text>
+
+        <ScrollView contentContainerStyle={styles.subjectContainer} style={{maxHeight: 300}}>
+            {materias.length === 0 ? (
+                <Text style={{color: '#999', fontStyle: 'italic', margin: 20}}>
+                  Cargando materias o sin conexión...
+                </Text>
+            ) : (
+                materias.map((materia) => (
+                    <TouchableOpacity 
+                        key={materia.id}
+                        style={[
+                            styles.subjectButton, 
+                            selectedSubject?.id === materia.id && styles.subjectButtonSelected
+                        ]}
+                        onPress={() => setSelectedSubject(materia)}
+                    >
+                        <Text style={[
+                            styles.subjectText,
+                            selectedSubject?.id === materia.id && styles.subjectTextSelected
+                        ]}>
+                            {materia.name}
+                        </Text>
+                        <Text style={[
+                            styles.timeText,
+                            selectedSubject?.id === materia.id && styles.subjectTextSelected
+                        ]}>
+                            {formatTime(materia.start_time)} - {formatTime(materia.end_time)}
+                        </Text>
+                    </TouchableOpacity>
+                ))
+            )}
+        </ScrollView>
+
+        <TouchableOpacity 
+            style={[styles.mainButton, !selectedSubject && {backgroundColor: '#ccc'}]} 
+            onPress={handleAttendance}
+            disabled={loading || !selectedSubject}
+        >
+            {loading ? <ActivityIndicator color="#fff"/> : <Text style={styles.btnText}>MARCAR ASISTENCIA</Text>}
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity onPress={handleLogout} style={{marginTop: 20}}>
+          <Text style={{color: 'red'}}>Cerrar Sesión</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+  card: { backgroundColor: 'white', padding: 20, borderRadius: 15, width: '90%', alignItems: 'center', elevation: 5 },
+  date: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#555' },
+  subtitle: { fontSize: 16, marginBottom: 10 },
+  
+  subjectContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', width: '100%', marginBottom: 15 },
+  
+  subjectButton: { 
+    padding: 10, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: '#007AFF', 
+    margin: 5, 
+    minWidth: '40%', 
+    alignItems: 'center'
   },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  subjectButtonSelected: { backgroundColor: '#007AFF' },
+  
+  subjectText: { color: '#007AFF', fontWeight: 'bold', textAlign: 'center' },
+  timeText: { color: '#007AFF', fontSize: 11, marginTop: 2 }, 
+  
+  subjectTextSelected: { color: 'white' },
+
+  mainButton: { backgroundColor: '#28a745', padding: 15, borderRadius: 10, width: '100%', alignItems: 'center', marginTop: 10 },
+  btnText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });
