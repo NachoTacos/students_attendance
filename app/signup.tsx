@@ -7,7 +7,6 @@ export default function SignUpScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Estados para los campos de la BD
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -32,7 +31,7 @@ export default function SignUpScreen() {
 
       if (result.success) {
         Alert.alert('¡Registro Exitoso!', 'Ahora puedes iniciar sesión.');
-        router.replace('/signin'); // Redirige al login para entrar
+        router.replace('/signin');
       } else {
         Alert.alert('Error', result.message || 'No se pudo registrar.');
       }
@@ -44,7 +43,6 @@ export default function SignUpScreen() {
   };
 
   return (
-    // Usamos ScrollView por si el teclado tapa los campos
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
@@ -118,14 +116,12 @@ export default function SignUpScreen() {
   );
 }
 
-// ESTILOS CLONADOS Y ADAPTADOS
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 20 },
   title: { fontSize: 28, fontWeight: 'bold', marginBottom: 30, textAlign: 'center', color: '#333' },
   input: { backgroundColor: '#fff', padding: 15, borderRadius: 10, marginBottom: 15, borderWidth: 1, borderColor: '#ddd' },
   
-  // Estilo extra para poner Grupo y Carrera en la misma línea
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   halfInput: { width: '48%' },
 

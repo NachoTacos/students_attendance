@@ -11,7 +11,6 @@ export default function LoginTeacher() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Asegúrate de usar la MISMA IP que tienes en api.js
   const API_URL = 'http://192.168.100.19:3000'; 
 
   const handleLogin = async () => {
@@ -23,7 +22,6 @@ export default function LoginTeacher() {
     setLoading(true);
 
     try {
-      // Petición al endpoint de profesores
       const response = await fetch(`${API_URL}/verify_teacher`, {
         method: 'POST',
         headers: {
@@ -38,11 +36,9 @@ export default function LoginTeacher() {
       const data = await response.json();
 
       if (data.success) {
-        // Guardar rol de profesor
         await AsyncStorage.setItem('userRole', 'teacher');
-        await AsyncStorage.setItem('teacherName', teacherName); // Opcional, por si quieres mostrar "Hola Profe X"
+        await AsyncStorage.setItem('teacherName', teacherName); 
         
-        // Redirigir al panel de Profesor
         router.replace('/(tabs)/homepageteacher');
       } else {
         Alert.alert('Error', 'Profesor no encontrado o contraseña incorrecta');
@@ -58,7 +54,7 @@ export default function LoginTeacher() {
 
   return (
     <View style={styles.container}>
-      {/* Título idéntico al de estudiantes */}
+
       <Text style={styles.title}>Profesores</Text>
       
       <TextInput
@@ -91,7 +87,6 @@ export default function LoginTeacher() {
         )}
       </TouchableOpacity>
 
-      {/* Enlace para volver al login de estudiantes */}
       <TouchableOpacity 
         onPress={() => router.navigate('/signin')} 
         style={styles.linkContainer}
@@ -103,7 +98,6 @@ export default function LoginTeacher() {
   );
 }
 
-// ESTILOS EXACTAMENTE IGUALES A SIGNIN.TSX
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f5f5f5' },
   title: { fontSize: 28, fontWeight: 'bold', marginBottom: 30, textAlign: 'center', color: '#333' },

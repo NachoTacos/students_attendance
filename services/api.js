@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Asegúrate de tener el http:// y tu IP correcta
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_URL = 'http://192.168.100.19:3000'; 
 export const loginStudent = async (studentName, password) => {
     try {
@@ -24,7 +24,7 @@ export const markAttendance = async (studentId, subjectName) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 student_id: studentId,
-                subject: subjectName // Enviamos el nombre (ej: "Matemáticas")
+                subject: subjectName 
             }),
         });
         return await response.json();
@@ -50,18 +50,13 @@ export const registerStudent = async (userData) => {
 
 export const saveOfflineAttendance = async (studentId, subjectName) => {
     try {
-        // Obtenemos lo que ya haya guardado
         const existingData = await AsyncStorage.getItem('offline_attendance');
         let attendanceList = existingData ? JSON.parse(existingData) : [];
-
-        // Agregamos la nueva asistencia con la fecha actual
         attendanceList.push({
             student_id: studentId,
             subject: subjectName,
-            date: new Date().toISOString() // Guardamos cuándo ocurrió
+            date: new Date().toISOString() 
         });
-
-        // Guardamos de nuevo en el celular
         await AsyncStorage.setItem('offline_attendance', JSON.stringify(attendanceList));
         return true;
     } catch (error) {
@@ -70,7 +65,6 @@ export const saveOfflineAttendance = async (studentId, subjectName) => {
     }
 };
 
-// 2. FUNCIÓN PARA SINCRONIZAR (SUBIR LO PENDIENTE)
 export const syncPendingAttendance = async () => {
     try {
         const existingData = await AsyncStorage.getItem('offline_attendance');
@@ -80,33 +74,26 @@ export const syncPendingAttendance = async () => {
         if (attendanceList.length === 0) return { success: true, count: 0 };
 
         console.log("Intentando sincronizar:", attendanceList.length, "registros.");
-
-        // Intentamos enviar cada uno al servidor
-        // Usamos un bucle for...of para procesar asíncronamente
         const failedUploads = [];
         let successCount = 0;
 
         for (const item of attendanceList) {
             try {
-                // Reutilizamos la función markAttendance que ya tienes
-                // IMPORTANTE: Asegúrate de que markAttendance esté exportada en este mismo archivo
                 const result = await markAttendance(item.student_id, item.subject);
                 if (result.success || result.message.includes("Ya marcaste")) {
                     successCount++;
                 } else {
-                    failedUploads.push(item); // Si el servidor rechaza, lo guardamos para después
+                    failedUploads.push(item); 
                 }
             } catch (error) {
-                // Si falla la conexión de nuevo, lo guardamos
                 failedUploads.push(item);
             }
         }
 
-        // Sobrescribimos el almacenamiento solo con los que fallaron (si hubo)
         if (failedUploads.length > 0) {
             await AsyncStorage.setItem('offline_attendance', JSON.stringify(failedUploads));
         } else {
-            await AsyncStorage.removeItem('offline_attendance'); // Limpiamos si todo salió bien
+            await AsyncStorage.removeItem('offline_attendance'); 
         }
 
         return { success: true, count: successCount, pending: failedUploads.length };

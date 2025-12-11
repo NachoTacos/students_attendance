@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { loginStudent } from '../services/api'; // Ajusta la ruta si es necesario (ej: './services/api' o '../services/api')
+import { loginStudent } from '../services/api';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -25,10 +25,9 @@ export default function SignInScreen() {
         if (result.student_id) {
             await AsyncStorage.setItem('studentId', result.student_id.toString());
             await AsyncStorage.setItem('studentName', result.student_name || studentName);
-            await AsyncStorage.setItem('userRole', 'student'); // Guardamos el rol
+            await AsyncStorage.setItem('userRole', 'student'); 
         }
         Alert.alert('¡Éxito!', 'Bienvenido al sistema');
-        // Redirigimos a la carpeta de tabs (Home del Estudiante)
         router.replace('/(tabs)/homepagestudent'); 
       } else {
         Alert.alert('Error', 'Usuario o contraseña incorrectos');
@@ -84,7 +83,6 @@ export default function SignInScreen() {
         </Text>
       </TouchableOpacity>
 
-      {/* --- BOTÓN NUEVO PARA IR AL LOGIN DE PROFESOR --- */}
       <TouchableOpacity 
         onPress={() => router.navigate('/login_teacher')} 
         style={styles.linkContainer}
@@ -103,7 +101,6 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#007AFF', padding: 15, borderRadius: 10, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   
-  // Estilos del link
   linkContainer: { marginTop: 25, alignItems: 'center' },
   linkText: { color: '#007AFF', fontSize: 16, fontWeight: '600' }
 });

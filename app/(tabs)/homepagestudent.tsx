@@ -2,10 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-// Importamos las nuevas funciones offline que creamos en api.js
 import { markAttendance, saveOfflineAttendance, syncPendingAttendance } from '../../services/api';
 
-// Definimos la estructura de la materia que viene de la BD
 interface Subject {
   id: number;
   name: string;
@@ -18,21 +16,14 @@ export default function HomePageStudent() {
   const [loading, setLoading] = useState(false);
   const [studentName, setStudentName] = useState('');
   
-  // Estados de datos
   const [materias, setMaterias] = useState<Subject[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
 
-  // Asegúrate de que esta IP sea la misma que en api.js
   const API_URL = 'http://192.168.100.19:3000'; 
 
   useEffect(() => {
-    // 1. Cargar nombre del estudiante
     AsyncStorage.getItem('studentName').then(val => { if(val) setStudentName(val); });
-    
-    // 2. Cargar lista de materias
     fetchMaterias();
-
-    // 3. INTENTAR SINCRONIZAR DATOS PENDIENTES (OFFLINE -> ONLINE)
     const trySync = async () => {
       const result = await syncPendingAttendance();
       if (result.success && (result.count || 0) > 0) {
@@ -52,25 +43,22 @@ export default function HomePageStudent() {
       }
     } catch (error) {
       console.error("Error cargando materias:", error);
-      // No bloqueamos al usuario con alerta aquí para no ser molestos si solo falla la carga inicial
     }
   };
 
-  // --- LÓGICA DE VALIDACIÓN DE TIEMPO ---
   const validarHorario = (materia: Subject) => {
     const ahora = new Date();
 
-    // Parsear Inicio
+
     const [hInicio, mInicio] = materia.start_time.split(':');
     const fechaInicio = new Date();
     fechaInicio.setHours(parseInt(hInicio), parseInt(mInicio), 0);
 
-    // Parsear Fin
+
     const [hFin, mFin] = materia.end_time.split(':');
     const fechaFin = new Date();
     fechaFin.setHours(parseInt(hFin), parseInt(mFin), 0);
 
-    // Tolerancias: 15 min antes, 10 min después
     const inicioPermitido = new Date(fechaInicio.getTime() - 15 * 60000);
     const finPermitido = new Date(fechaFin.getTime() + 10 * 60000);
 
@@ -99,7 +87,6 @@ const handleAttendance = async () => {
       const studentId = await AsyncStorage.getItem('studentId');
       if (!studentId) return;
 
-      // Intentamos conexión normal (ONLINE)
       const result = await markAttendance(studentId, selectedSubject.name);
       
       if (result.success) {
@@ -109,7 +96,6 @@ const handleAttendance = async () => {
       }
 
     } catch (error) {
-      // --- SI FALLA EL INTERNET (CATCH) ---
       console.log("Fallo de red, guardando offline...");
       
       const studentId = await AsyncStorage.getItem('studentId');

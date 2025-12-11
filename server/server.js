@@ -23,7 +23,6 @@ app.get("/data", (req, res) => {
 });
 
 
-// 1. MODIFICAR: Endpoint de Login para devolver el ID
 app.post("/verify_student", function(req, res) {
     const sql = 'SELECT * FROM `students` WHERE `student_name` = ? AND `student_password`= ?';
     const {student_name, student_password} = req.body;
@@ -35,7 +34,6 @@ app.post("/verify_student", function(req, res) {
         
         if (results.length > 0){
             const student = results[0]; 
-            // IMPORTANTE: Devolvemos student_id para guardarlo en el celular
             return res.json({
                 success: true, 
                 student_id: student.id,      
@@ -46,14 +44,12 @@ app.post("/verify_student", function(req, res) {
         }
     });
 });
-// verificar profesores
 app.post("/verify_teacher", function(req, res) {
 
     var sql = 'SELECT * FROM `teachers` WHERE `teacher_name` = ? AND `teacher_password`= ?';
 
     const {teacher_name, teacher_password} = req.body;
 
-    // Checar si hay v  alores vacios
     if(!teacher_name){
         return res.status(400).json({error: "Missing fields, check request body"});
     }
@@ -75,7 +71,6 @@ app.post("/verify_teacher", function(req, res) {
 app.post("/register_student", function(req, res) {
     const { student_name, student_password, student_email, student_group, student_career } = req.body;
 
-    // Validación básica
     if(!student_name || !student_password || !student_group) {
         return res.status(400).json({ success: false, message: "Faltan datos obligatorios (Nombre, Contraseña o Grupo)" });
     }
@@ -94,19 +89,16 @@ app.post("/register_student", function(req, res) {
 });
 
 app.post("/attendance", function(req, res) {
-    // Recibimos student_id Y subject (nombre de la materia)
     const { student_id, subject } = req.body;
 
     if (!student_id || !subject) {
         return res.status(400).json({ error: "Falta ID estudiante o Materia" });
     }
 
-    // Intentamos insertar. El UNIQUE INDEX de la base de datos hará el trabajo sucio si hay duplicados.
     const sql = "INSERT INTO attendance (student_id, subject, date, status, is_synced, sync_timestamp) VALUES (?, ?, CURDATE(), 'Presente', 1, NOW())";
 
     mysqldb.query(sql, [student_id, subject], (err, result) => {
         if (err) {
-            // Si el error es código 1062, es que ya marcó ESA materia HOY
             if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062) {
                 return res.json({ 
                     success: false, 
@@ -120,7 +112,6 @@ app.post("/attendance", function(req, res) {
     });
 });
 
-// Obtener lista de materias con horarios
 app.get("/subjects", (req, res) => {
     mysqldb.query("SELECT * FROM subjects", (error, results) => {
         if(error) return res.status(500).json({ error: "Error BD" });
@@ -129,7 +120,6 @@ app.get("/subjects", (req, res) => {
 });
 
 app.get("/reports", (req, res) => {
-    // Unimos la tabla de asistencia con la de estudiantes para obtener el nombre
     const sql = `
         SELECT 
             attendance.id,
@@ -159,15 +149,13 @@ app.get("/all_students", (req, res) => {
     });
 });
 
-// 2. Reporte detallado de un estudiante (Calcula Faltas)
 app.post("/student_history", (req, res) => {
     const { student_id, subject } = req.body;
 
-    // A. Obtenemos TODAS las fechas que hubo clase de esa materia
-    // (Asumimos que hubo clase si al menos una persona marcó asistencia)
+
     const sqlDates = "SELECT DISTINCT date FROM attendance WHERE subject = ? ORDER BY date DESC";
     
-    // B. Obtenemos las fechas que EL ALUMNO asistió
+
     const sqlAttendance = "SELECT date FROM attendance WHERE student_id = ? AND subject = ?";
 
     mysqldb.query(sqlDates, [subject], (err, allClassDates) => {
@@ -176,12 +164,9 @@ app.post("/student_history", (req, res) => {
         mysqldb.query(sqlAttendance, [student_id, subject], (err2, studentDates) => {
             if (err2) return res.status(500).json({ error: "Error alumno" });
 
-            // C. LOGICA DE COMPARACIÓN (Magia en el Backend)
             const historial = allClassDates.map((registroClase) => {
-                // Formato de fecha JS para comparar
-                const fechaClase = JSON.stringify(registroClase.date).substring(1,11); // "2023-12-10"
+                const fechaClase = JSON.stringify(registroClase.date).substring(1,11); 
                 
-                // Buscamos si el alumno tiene esa fecha registrada
                 const asistio = studentDates.some(registroAlumno => {
                     const fechaAlumno = JSON.stringify(registroAlumno.date).substring(1,11);
                     return fechaAlumno === fechaClase;
@@ -189,7 +174,7 @@ app.post("/student_history", (req, res) => {
 
                 return {
                     date: fechaClase,
-                    status: asistio ? 'Presente' : 'Ausente' // <--- AQUÍ DETERMINAMOS LA FALTA
+                    status: asistio ? 'Presente' : 'Ausente' 
                 };
             });
 
